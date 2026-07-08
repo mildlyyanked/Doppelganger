@@ -33,6 +33,8 @@ class Twin:
     store: MemoryStore = field(default=None)  # type: ignore[assignment]
     card: Optional[PersonaCard] = None
     guardrails: Guardrails = field(default_factory=lambda: Guardrails(GuardrailConfig()))
+    # Optional per-twin OpenRouter key (set from the app). Falls back to env.
+    api_key: Optional[str] = None
 
     def __post_init__(self) -> None:
         if self.store is None:
@@ -73,7 +75,9 @@ class Twin:
             await self.rebuild_persona()
             await asyncio.sleep(interval)
 
-    async def rebuild_persona(self) -> PersonaCard:
+    async def rebuild_persona(self, api_key: Optional[str] = None) -> PersonaCard:
         items = self.store.all()
-        self.card = await persona.build_persona_card(self.subject_id, items)
+        self.card = await persona.build_persona_card(
+            self.subject_id, items, api_key=api_key or self.api_key
+        )
         return self.card

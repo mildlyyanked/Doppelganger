@@ -14,9 +14,11 @@ class SetupScreen extends StatefulWidget {
 class _SetupScreenState extends State<SetupScreen> {
   late final _url = TextEditingController(text: widget.state.baseUrl);
   late final _subject = TextEditingController(text: widget.state.subjectId);
+  late final _key = TextEditingController(text: widget.state.openRouterKey);
   final _redditUser = TextEditingController();
   String _log = '';
   bool _busy = false;
+  bool _showKey = false;
 
   void _append(String s) => setState(() => _log = '$s\n$_log');
 
@@ -65,6 +67,24 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
           onChanged: (v) {
             s.subjectId = v.trim();
+            s.save();
+          },
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _key,
+          obscureText: !_showKey,
+          decoration: InputDecoration(
+            labelText: 'OpenRouter API key',
+            helperText: 'Stored on this device; sent to your backend for LLM calls',
+            border: const OutlineInputBorder(),
+            suffixIcon: IconButton(
+              icon: Icon(_showKey ? Icons.visibility_off : Icons.visibility),
+              onPressed: () => setState(() => _showKey = !_showKey),
+            ),
+          ),
+          onChanged: (v) {
+            s.openRouterKey = v.trim();
             s.save();
           },
         ),

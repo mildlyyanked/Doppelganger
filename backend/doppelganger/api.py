@@ -17,18 +17,25 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from .chat import DoppelgangerChat
+from .llm import LLMError
 from .twin import Twin
 
 app = FastAPI(title="Doppelganger", version="0.1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
+
+
+@app.exception_handler(LLMError)
+async def _llm_error(_: Request, exc: LLMError) -> JSONResponse:
+    # Surface LLM/key problems as a clean 400 instead of a 500 + stack trace.
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 TWINS: dict[str, Twin] = {}
 
@@ -50,9 +57,15 @@ class AddSource(BaseModel):
     config: dict[str, Any]
 
 
+class BuildPersona(BaseModel):
+    # Optional: the app can pass its stored OpenRouter key here.
+    api_key: str | None = None
+
+
 class ChatTurn(BaseModel):
     message: str
     history: list[dict[str, str]] = []
+    api_key: str | None = None
 
 
 @app.get("/health")
@@ -84,10 +97,12 @@ async def poll(twin_id: str) -> dict[str, Any]:
 
 
 @app.post("/twins/{twin_id}/persona")
-async def build_persona(twin_id: str) -> dict[str, Any]:
+async def build_persona(twin_id: str, body: BuildPersona | None = None) -> dict[str, Any]:
     twin = _get(twin_id)
     if twin.store.count() == 0:
         raise HTTPException(400, "no memories yet — poll a source first")
+    if body and body.api_key:
+        twin.api_key = body.api_key  # remember it for the poll loop's rebuilds
     card = await twin.rebuild_persona()
     return card.model_dump(mode="json")
 
@@ -111,28 +126,36 @@ async def stats(twin_id: str) -> dict[str, Any]:
     }
 
 
-def _chat(twin: Twin) -> DoppelgangerChat:
+def _chat(twin: Twin, api_key: str | None = None) -> DoppelgangerChat:
     if not twin.card:
         raise HTTPException(400, "persona not built yet — POST /persona first")
-    return DoppelgangerChat(twin.card, twin.store, twin.guardrails)
+    if api_key:
+        twin.api_key = api_key
+    return DoppelgangerChat(
+        twin.card, twin.store, twin.guardrails, api_key=api_key or twin.api_key
+    )
 
 
 @app.post("/twins/{twin_id}/chat")
 async def chat(twin_id: str, body: ChatTurn) -> dict[str, str]:
     twin = _get(twin_id)
-    reply = await _chat(twin).reply(body.history, body.message)
+    reply = await _chat(twin, body.api_key).reply(body.history, body.message)
     return {"reply": reply}
 
 
 @app.post("/twins/{twin_id}/chat/stream")
 async def chat_stream(twin_id: str, body: ChatTurn) -> StreamingResponse:
     twin = _get(twin_id)
-    chat_engine = _chat(twin)
+    chat_engine = _chat(twin, body.api_key)
 
     async def gen():
         # JSON-encode each delta so newlines/special chars survive SSE framing.
-        async for delta in chat_engine.stream(body.history, body.message):
-            yield f"data: {json.dumps(delta)}\n\n"
+        try:
+            async for delta in chat_engine.stream(body.history, body.message):
+                yield f"data: {json.dumps(delta)}\n\n"
+        except LLMError as e:
+            # Headers are already sent, so deliver the error as a text frame.
+            yield f"data: {json.dumps(f'⚠ {e}')}\n\n"
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream")

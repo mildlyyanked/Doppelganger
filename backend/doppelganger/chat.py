@@ -27,10 +27,12 @@ class DoppelgangerChat:
         card: PersonaCard,
         store: MemoryStore,
         guardrails: Guardrails | None = None,
+        api_key: str | None = None,
     ) -> None:
         self.card = card
         self.store = store
         self.guardrails = guardrails or Guardrails()
+        self.api_key = api_key
         self._exemplars = persona.style_exemplars(store.all())
 
     async def _build_messages(self, history: list[dict], user_text: str) -> list[dict]:
@@ -54,7 +56,7 @@ class DoppelgangerChat:
         if not gi.allowed:
             return gi.text
         messages = await self._build_messages(history, gi.text)
-        raw = await llm.complete(messages, model=settings.chat_model)
+        raw = await llm.complete(messages, model=settings.chat_model, api_key=self.api_key)
         return self.guardrails.filter_output(raw).text
 
     async def stream(self, history: list[dict], user_text: str) -> AsyncIterator[str]:
@@ -64,5 +66,5 @@ class DoppelgangerChat:
             return
         messages = await self._build_messages(history, gi.text)
         # NOTE: output guardrails run post-hoc on streamed text at the API layer.
-        async for delta in llm.stream(messages, model=settings.chat_model):
+        async for delta in llm.stream(messages, model=settings.chat_model, api_key=self.api_key):
             yield delta

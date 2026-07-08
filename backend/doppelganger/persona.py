@@ -30,13 +30,17 @@ def _sample_corpus(items: list[MemoryItem], limit: int = 120) -> str:
     return "\n".join(lines)
 
 
-async def build_persona_card(subject_id: str, items: list[MemoryItem]) -> PersonaCard:
+async def build_persona_card(
+    subject_id: str, items: list[MemoryItem], api_key: str | None = None
+) -> PersonaCard:
     corpus = _sample_corpus(items)
     messages = [
         {"role": "system", "content": _INSTRUCTION},
         {"role": "user", "content": f"PERSON: {subject_id}\n\nSAMPLE:\n{corpus}"},
     ]
-    raw = await llm.complete(messages, model=settings.persona_model, temperature=0.3)
+    raw = await llm.complete(
+        messages, model=settings.persona_model, temperature=0.3, api_key=api_key
+    )
     data = _extract_json(raw)
     data["subject_id"] = subject_id
     data["source_item_count"] = len(items)

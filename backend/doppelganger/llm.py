@@ -13,26 +13,30 @@ class LLMError(RuntimeError):
     pass
 
 
-def _headers() -> dict[str, str]:
-    if not settings.openrouter_api_key:
+def _headers(api_key: str | None = None) -> dict[str, str]:
+    # Prefer a per-request key (entered in the app) over the server env var.
+    key = api_key or settings.openrouter_api_key
+    if not key:
         raise LLMError(
-            "DG_OPENROUTER_API_KEY is not set. Export it (see backend/.env.example) "
-            "or the persona/chat calls cannot run."
+            "No OpenRouter API key. Enter one in the app's Setup tab, or set "
+            "DG_OPENROUTER_API_KEY on the server (see backend/.env.example)."
         )
     return {
-        "Authorization": f"Bearer {settings.openrouter_api_key}",
+        "Authorization": f"Bearer {key}",
         "HTTP-Referer": "https://github.com/mildlyyanked/Doppelganger",
         "X-Title": "Doppelganger",
         "Content-Type": "application/json",
     }
 
 
-async def complete(messages: list[dict], *, model: str, temperature: float = 0.8) -> str:
+async def complete(
+    messages: list[dict], *, model: str, temperature: float = 0.8, api_key: str | None = None
+) -> str:
     """Non-streaming completion; returns the full text."""
     async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
         resp = await client.post(
             f"{settings.openrouter_base_url}/chat/completions",
-            headers=_headers(),
+            headers=_headers(api_key),
             json={"model": model, "messages": messages, "temperature": temperature},
         )
         if resp.status_code >= 400:
@@ -42,14 +46,14 @@ async def complete(messages: list[dict], *, model: str, temperature: float = 0.8
 
 
 async def stream(
-    messages: list[dict], *, model: str, temperature: float = 0.8
+    messages: list[dict], *, model: str, temperature: float = 0.8, api_key: str | None = None
 ) -> AsyncIterator[str]:
     """Yield text deltas as they arrive (SSE)."""
     async with httpx.AsyncClient(timeout=settings.request_timeout_seconds) as client:
         async with client.stream(
             "POST",
             f"{settings.openrouter_base_url}/chat/completions",
-            headers=_headers(),
+            headers=_headers(api_key),
             json={
                 "model": model,
                 "messages": messages,

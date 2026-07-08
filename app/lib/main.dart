@@ -12,16 +12,18 @@ void main() => runApp(const DoppelgangerApp());
 class AppState extends ChangeNotifier {
   String baseUrl = 'http://10.0.2.2:8000'; // Android emulator -> host loopback
   String subjectId = 'sample_dad';
+  String openRouterKey = ''; // persisted in-app; sent to the backend per request
   bool personaReady = false;
   String personaName = '';
   int memoryCount = 0;
 
-  ApiClient get api => ApiClient(baseUrl);
+  ApiClient get api => ApiClient(baseUrl, apiKey: openRouterKey);
 
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
     baseUrl = p.getString('baseUrl') ?? baseUrl;
     subjectId = p.getString('subjectId') ?? subjectId;
+    openRouterKey = p.getString('openRouterKey') ?? openRouterKey;
     notifyListeners();
   }
 
@@ -29,6 +31,7 @@ class AppState extends ChangeNotifier {
     final p = await SharedPreferences.getInstance();
     await p.setString('baseUrl', baseUrl);
     await p.setString('subjectId', subjectId);
+    await p.setString('openRouterKey', openRouterKey);
   }
 
   void setPersona(String name, int count) {

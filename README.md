@@ -49,23 +49,34 @@ python scripts/poc.py "what's your carbonara secret?"
 
 ```bash
 cd backend && . .venv/bin/activate
-export DG_OPENROUTER_API_KEY=sk-or-...
 uvicorn doppelganger.api:app --host 0.0.0.0 --port 8000
 ```
 
-Then in the app's **Setup** tab set the Backend URL:
-- **Android emulator** → `http://10.0.2.2:8000`
-- **Real phone (same Wi-Fi)** → `http://<your-computer-LAN-IP>:8000`
-  (or expose it with `ngrok http 8000` and use the https URL)
+No server env var needed — enter your OpenRouter key **in the app** (Setup tab).
+It's stored on the device and sent to your backend per request. (You can still
+set `DG_OPENROUTER_API_KEY` on the server as a fallback.)
 
-Create twin → Poll → Build persona → switch to **Chat**.
+In the app's **Setup** tab set:
+- **Backend URL** — emulator `http://10.0.2.2:8000`; real phone
+  `http://<your-computer-LAN-IP>:8000`, or expose it with `ngrok http 8000` and
+  use the **https** URL (recommended, so the key isn't sent in cleartext).
+- **OpenRouter API key** — paste it once; it persists.
 
-## Phone build loop
+Then: Create twin → Poll → Build persona → switch to **Chat**.
 
-Push to your branch → the **Android build** workflow compiles an APK → open the
-run → download the `doppelganger-debug-apk` artifact → install on your phone
-(enable "install unknown apps"). Upgrade to Firebase App Distribution later to
-skip the manual download.
+## Install on your phone (distribution)
+
+Every push builds an APK and publishes it to a **rolling GitHub Release** with a
+stable URL:
+
+```
+https://github.com/mildlyyanked/Doppelganger/releases/download/latest-android/app-debug.apk
+```
+
+Open that link in your phone's browser, allow "install unknown apps", install.
+The same URL always serves the latest build, so re-installing = re-downloading.
+(The build is also attached to each workflow run as the `doppelganger-debug-apk`
+artifact.) Upgrade to Firebase App Distribution later for push-to-device.
 
 ## Status
 

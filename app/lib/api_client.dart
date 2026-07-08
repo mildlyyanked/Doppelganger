@@ -4,12 +4,17 @@ import 'package:http/http.dart' as http;
 /// Thin client for the Doppelganger backend. Keeps all model/keys/ingest logic
 /// server-side — the app never touches OpenRouter or source credentials.
 class ApiClient {
-  ApiClient(this.baseUrl);
+  ApiClient(this.baseUrl, {this.apiKey = ''});
 
   /// e.g. http://192.168.1.20:8000 (your machine's LAN IP so the phone can reach it)
   String baseUrl;
 
+  /// OpenRouter key entered in-app; forwarded to the backend for LLM calls.
+  String apiKey;
+
   Uri _u(String path) => Uri.parse('$baseUrl$path');
+
+  String? get _key => apiKey.trim().isEmpty ? null : apiKey.trim();
 
   Future<void> createTwin(String subjectId,
       {List<Map<String, dynamic>> sources = const []}) async {
@@ -33,7 +38,8 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> buildPersona(String subjectId) async {
-    final r = await http.post(_u('/twins/$subjectId/persona'));
+    final r = await http.post(_u('/twins/$subjectId/persona'),
+        headers: _json, body: jsonEncode({'api_key': _key}));
     _check(r);
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
@@ -49,7 +55,8 @@ class ApiClient {
       List<Map<String, String>> history) async* {
     final req = http.Request('POST', _u('/twins/$subjectId/chat/stream'))
       ..headers.addAll(_json)
-      ..body = jsonEncode({'message': message, 'history': history});
+      ..body = jsonEncode(
+          {'message': message, 'history': history, 'api_key': _key});
     final resp = await http.Client().send(req);
     if (resp.statusCode >= 400) {
       throw Exception('chat stream failed: HTTP ${resp.statusCode}');
