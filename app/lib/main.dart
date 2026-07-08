@@ -1,27 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'api_client.dart';
+import 'engine/twin.dart';
 import 'screens/setup_screen.dart';
 import 'screens/chat_screen.dart';
 
 void main() => runApp(const DoppelgangerApp());
 
-/// Shared app state for the PoC. Small enough that setState + a passed-down
-/// object beats pulling in a state-management package.
+/// App state for the on-device PoC. No backend: the [Twin] holds the memory
+/// store, persona and OpenRouter client, all in memory for the session.
 class AppState extends ChangeNotifier {
-  String baseUrl = 'http://10.0.2.2:8000'; // Android emulator -> host loopback
   String subjectId = 'sample_dad';
-  String openRouterKey = ''; // persisted in-app; sent to the backend per request
-  bool personaReady = false;
-  String personaName = '';
-  int memoryCount = 0;
+  String openRouterKey = ''; // persisted on-device; sent only to OpenRouter
 
-  ApiClient get api => ApiClient(baseUrl, apiKey: openRouterKey);
+  Twin? twin;
+  bool get personaReady => twin?.card != null;
+  String get personaName => twin?.card?.displayName ?? '';
+  int get memoryCount => twin?.store.count ?? 0;
+
+  /// Create (or recreate) the twin with the current key/subject.
+  Twin ensureTwin() {
+    final existing = twin;
+    if (existing != null && existing.subjectId == subjectId) return existing;
+    final t = Twin(subjectId: subjectId, apiKey: openRouterKey);
+    twin = t;
+    return t;
+  }
 
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
-    baseUrl = p.getString('baseUrl') ?? baseUrl;
     subjectId = p.getString('subjectId') ?? subjectId;
     openRouterKey = p.getString('openRouterKey') ?? openRouterKey;
     notifyListeners();
@@ -29,17 +36,11 @@ class AppState extends ChangeNotifier {
 
   Future<void> save() async {
     final p = await SharedPreferences.getInstance();
-    await p.setString('baseUrl', baseUrl);
     await p.setString('subjectId', subjectId);
     await p.setString('openRouterKey', openRouterKey);
   }
 
-  void setPersona(String name, int count) {
-    personaReady = true;
-    personaName = name;
-    memoryCount = count;
-    notifyListeners();
-  }
+  void changed() => notifyListeners();
 }
 
 class DoppelgangerApp extends StatefulWidget {

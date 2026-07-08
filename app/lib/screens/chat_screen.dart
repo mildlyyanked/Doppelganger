@@ -42,8 +42,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final reply = _msgs.last;
     try {
-      await for (final delta
-          in widget.state.api.chatStream(widget.state.subjectId, text, history)) {
+      final twin = widget.state.twin;
+      if (twin == null) throw Exception('Build a persona on the Setup tab first.');
+      await for (final delta in twin.chatStream(history, text)) {
         setState(() => reply.text += delta);
         _toBottom();
       }
