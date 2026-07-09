@@ -7,17 +7,31 @@ import 'store.dart';
 /// The on-device twin: holds the memory store, persona card, and the OpenRouter
 /// client. Everything lives in memory for the session.
 class Twin {
-  Twin({required this.subjectId, required String apiKey})
-      : _client = OpenRouterClient(apiKey);
+  Twin({
+    required this.subjectId,
+    required String apiKey,
+    String? personaModel,
+    String? chatModel,
+  })  : _client = OpenRouterClient(apiKey),
+        personaModel = (personaModel?.trim().isNotEmpty ?? false)
+            ? personaModel!.trim()
+            : defaultPersonaModel,
+        chatModel = (chatModel?.trim().isNotEmpty ?? false)
+            ? chatModel!.trim()
+            : defaultChatModel;
 
   String subjectId;
   final OpenRouterClient _client;
   final store = MemoryStore();
   PersonaCard? card;
 
-  // Strong model to distill the persona; fast model for chat turns.
-  static const personaModel = 'anthropic/claude-sonnet-4';
-  static const chatModel = 'anthropic/claude-3.5-haiku';
+  // Configurable OpenRouter model ids (editable in the app so a renamed/retired
+  // slug is a one-field fix, not a rebuild). Mutable so changing a model keeps
+  // the already-ingested memories and built persona. Defaults to a known-good slug.
+  String personaModel; // strong model, distills the persona
+  String chatModel; //    per-turn chat
+  static const defaultPersonaModel = 'anthropic/claude-sonnet-4';
+  static const defaultChatModel = 'anthropic/claude-sonnet-4';
   static const topK = 8;
 
   int addMemories(List<MemoryItem> items) => store.add(items);

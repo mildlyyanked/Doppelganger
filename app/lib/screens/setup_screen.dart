@@ -17,6 +17,9 @@ class SetupScreen extends StatefulWidget {
 class _SetupScreenState extends State<SetupScreen> {
   late final _subject = TextEditingController(text: widget.state.subjectId);
   late final _key = TextEditingController(text: widget.state.openRouterKey);
+  late final _personaModel =
+      TextEditingController(text: widget.state.personaModel);
+  late final _chatModel = TextEditingController(text: widget.state.chatModel);
   String _log = '';
   bool _busy = false;
   bool _showKey = false;
@@ -77,7 +80,44 @@ class _SetupScreenState extends State<SetupScreen> {
             s.save();
           },
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
+        ExpansionTile(
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: const EdgeInsets.only(bottom: 8),
+          title: const Text('Models (advanced)'),
+          subtitle: Text('${s.personaModel}  ·  ${s.chatModel}',
+              style: Theme.of(context).textTheme.bodySmall),
+          children: [
+            TextField(
+              controller: _personaModel,
+              decoration: const InputDecoration(
+                labelText: 'Persona model (OpenRouter id)',
+                helperText: 'Strong model used once to distill the persona',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (v) {
+                s.personaModel = v.trim();
+                if (v.trim().isNotEmpty) s.twin?.personaModel = v.trim();
+                s.save();
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _chatModel,
+              decoration: const InputDecoration(
+                labelText: 'Chat model (OpenRouter id)',
+                helperText: 'Per-turn replies. Copy exact ids from openrouter.ai/models',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (v) {
+                s.chatModel = v.trim();
+                if (v.trim().isNotEmpty) s.twin?.chatModel = v.trim();
+                s.save();
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         Text('Sources', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Wrap(spacing: 8, runSpacing: 8, children: [

@@ -12,17 +12,24 @@ void main() => runApp(const DoppelgangerApp());
 class AppState extends ChangeNotifier {
   String subjectId = 'sample_dad';
   String openRouterKey = ''; // persisted on-device; sent only to OpenRouter
+  String personaModel = Twin.defaultPersonaModel;
+  String chatModel = Twin.defaultChatModel;
 
   Twin? twin;
   bool get personaReady => twin?.card != null;
   String get personaName => twin?.card?.displayName ?? '';
   int get memoryCount => twin?.store.count ?? 0;
 
-  /// Create (or recreate) the twin with the current key/subject.
+  /// Create (or recreate) the twin with the current key/subject/models.
   Twin ensureTwin() {
     final existing = twin;
     if (existing != null && existing.subjectId == subjectId) return existing;
-    final t = Twin(subjectId: subjectId, apiKey: openRouterKey);
+    final t = Twin(
+      subjectId: subjectId,
+      apiKey: openRouterKey,
+      personaModel: personaModel,
+      chatModel: chatModel,
+    );
     twin = t;
     return t;
   }
@@ -31,6 +38,8 @@ class AppState extends ChangeNotifier {
     final p = await SharedPreferences.getInstance();
     subjectId = p.getString('subjectId') ?? subjectId;
     openRouterKey = p.getString('openRouterKey') ?? openRouterKey;
+    personaModel = p.getString('personaModel') ?? personaModel;
+    chatModel = p.getString('chatModel') ?? chatModel;
     notifyListeners();
   }
 
@@ -38,6 +47,8 @@ class AppState extends ChangeNotifier {
     final p = await SharedPreferences.getInstance();
     await p.setString('subjectId', subjectId);
     await p.setString('openRouterKey', openRouterKey);
+    await p.setString('personaModel', personaModel);
+    await p.setString('chatModel', chatModel);
   }
 
   void changed() => notifyListeners();
