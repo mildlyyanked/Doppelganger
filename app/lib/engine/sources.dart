@@ -8,7 +8,16 @@ import 'models.dart';
 /// platforms (x/instagram/facebook/linkedin) come in via import of the user's
 /// data export — higher fidelity and no ToS/anti-scraping breakage.
 class Sources {
-  static const _ua = 'DoppelgangerApp/0.1';
+  // Reddit blocklists generic/bot User-Agents on its public .json endpoints
+  // (403). A realistic browser UA gets through from a normal (phone) IP.
+  static const _ua =
+      'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36';
+  static const _headers = {
+    'User-Agent': _ua,
+    'Accept': 'application/json,text/html;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+  };
 
   /// The bundled fake person, so the PoC works with zero setup.
   static Future<List<MemoryItem>> loadSample() async {
@@ -18,12 +27,19 @@ class Sources {
 
   /// Reddit public comments + submissions (rate-limited, no login).
   static Future<List<MemoryItem>> reddit(String username) async {
+    final handle = username.replaceFirst(RegExp(r'^/?u/'), '').trim();
     final items = <MemoryItem>[];
     for (final kind in ['comments', 'submitted']) {
-      final r = await http.get(
-        Uri.parse('https://www.reddit.com/user/$username/$kind.json?limit=100'),
-        headers: {'User-Agent': _ua},
-      );
+      final r = await _redditGet(handle, kind);
+      if (r.statusCode == 403) {
+        throw Exception(
+            'Reddit blocked the request (403). Their public API is heavily '
+            'rate-limited — wait a minute and retry, or use Reddit\'s data '
+            'export and import it. (u/$handle)');
+      }
+      if (r.statusCode == 404) {
+        throw Exception('Reddit user "u/$handle" not found (404).');
+      }
       if (r.statusCode != 200) {
         throw Exception('Reddit $kind: HTTP ${r.statusCode}');
       }
@@ -43,7 +59,7 @@ class Sources {
           id: 'reddit:$name',
           source: Platform.reddit,
           text: text,
-          authorHandle: username,
+          authorHandle: handle,
           permalink: d['permalink'] != null
               ? 'https://reddit.com${d['permalink']}'
               : null,
@@ -57,9 +73,24 @@ class Sources {
     return items;
   }
 
+  /// GET a user's .json, trying www then old.reddit.com (different edge that
+  /// sometimes answers when www 403s). Returns the first non-403 response.
+  static Future<http.Response> _redditGet(String handle, String kind) async {
+    http.Response? last;
+    for (final host in ['www.reddit.com', 'old.reddit.com']) {
+      final r = await http.get(
+        Uri.parse('https://$host/user/$handle/$kind.json?limit=100&raw_json=1'),
+        headers: _headers,
+      );
+      if (r.statusCode != 403) return r;
+      last = r;
+    }
+    return last!;
+  }
+
   /// Fetch a public article/blog/profile page and strip it to text.
   static Future<List<MemoryItem>> web(String url) async {
-    final r = await http.get(Uri.parse(url), headers: {'User-Agent': _ua});
+    final r = await http.get(Uri.parse(url), headers: _headers);
     if (r.statusCode != 200) throw Exception('Web: HTTP ${r.statusCode}');
     var html = r.body
         .replaceAll(RegExp(r'<script.*?</script>', dotAll: true), ' ')
