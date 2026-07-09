@@ -6,6 +6,7 @@ from .reddit import RedditConnector
 from .upload import UploadConnector
 from .youtube import YouTubeConnector
 from .crawl import WebCrawlConnector
+from .instagram import InstagramConnector
 
 # Registry used by the poller / API to spin up sources by name.
 REGISTRY: dict[str, type[Connector]] = {
@@ -13,6 +14,7 @@ REGISTRY: dict[str, type[Connector]] = {
     "youtube": YouTubeConnector,
     "web": WebCrawlConnector,
     "upload": UploadConnector,
+    "instagram": InstagramConnector,
 }
 
 __all__ = [
@@ -22,5 +24,6 @@ __all__ = [
     "UploadConnector",
     "YouTubeConnector",
     "WebCrawlConnector",
+    "InstagramConnector",
     "REGISTRY",
 ]

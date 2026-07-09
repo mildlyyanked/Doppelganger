@@ -8,7 +8,7 @@ without touching the rest.
 | Module | Role |
 | --- | --- |
 | `models.py` | `MemoryItem` (the one normalized unit) and `PersonaCard` (+ its system-prompt renderer). |
-| `ingest/` | Source connectors. `base.Connector` is the contract; `reddit`, `web`, `upload` are real, `youtube` is a stub. Registry in `ingest/__init__.py`. |
+| `ingest/` | Source connectors. `base.Connector` is the contract; `reddit`, `web`, `upload` real; `instagram` wraps the Node scraper (server-only, fails soft); `youtube` is a stub. Registry in `ingest/__init__.py`. |
 | `embeddings.py` | `LocalHashEmbedding` (keyless default) and `OpenAICompatEmbedding`. |
 | `store.py` | In-memory vector store (`add`/`search`/`all`/`count`). Swap for pgvector/Qdrant behind the same surface. |
 | `persona.py` | Distills a corpus into a `PersonaCard` + picks real style exemplars. |
